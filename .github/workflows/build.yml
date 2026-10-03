@@ -1,0 +1,176 @@
+name: Build Desktop Releases
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    name: Build Windows Installer (.exe)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Calculate Incremental Version
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        shell: pwsh
+        run: |
+          $versionLine = (Get-Content pubspec.yaml | Select-String "^version:").Line
+          $rawVersion = ($versionLine -replace "^version:\s*", "").Trim().Trim("'").Trim('"')
+          $versionParts = $rawVersion.Split('+')
+          $versionName = $versionParts[0]
+          $baseBuild = [int]$versionParts[1]
+          $runNum = [int]$env:GITHUB_RUN_NUMBER
+          $buildNumber = $baseBuild + $runNum
+          $fullVersion = "$versionName+$buildNumber"
+          $fullVersionSlug = "$versionName.$buildNumber"
+          
+          Write-Host "Calculated Version Name: $versionName"
+          Write-Host "Calculated Build Number: $buildNumber"
+          Write-Host "Calculated Full Version: $fullVersion"
+          Write-Host "Calculated Slug Version: $fullVersionSlug"
+          
+          "VERSION_NAME=$versionName" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "BUILD_NUMBER=$buildNumber" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "FULL_VERSION=$fullVersion" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "FULL_VERSION_SLUG=$fullVersionSlug" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'beta'
+          cache: true
+
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Code Generation
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run Tests
+        run: flutter test
+
+      - name: Build Windows Executable (Release)
+        shell: pwsh
+        run: |
+          flutter build windows --release --build-name=$env:VERSION_NAME --build-number=$env:BUILD_NUMBER
+
+      - name: Verify Inno Setup Compiler
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) {
+            if (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe") {
+              echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Append
+            } else {
+              choco install innosetup --no-progress
+              echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -FilePath $env:GITHUB_PATH -Append
+            }
+          }
+
+      - name: Compile Inno Setup Installer
+        shell: pwsh
+        run: |
+          iscc /DMyAppVersion="$env:FULL_VERSION_SLUG" packaging/windows/setup.iss
+
+      - name: Upload Windows Installer (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: TesteSTI-v${{ env.FULL_VERSION_SLUG }}-windows-setup
+          path: output/windows/*.exe
+          if-no-files-found: error
+
+  build-linux:
+    name: Build Linux Universal AppImage (.AppImage)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev file wget
+
+      - name: Calculate Incremental Version
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | sed 's/version: //' | tr -d ' "'\'')
+          VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
+          BASE_BUILD=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          BUILD_NUMBER=$((BASE_BUILD + GITHUB_RUN_NUMBER))
+          FULL_VERSION="${VERSION_NAME}+${BUILD_NUMBER}"
+          FULL_VERSION_SLUG="${VERSION_NAME}.${BUILD_NUMBER}"
+
+          echo "Calculated Version Name: ${VERSION_NAME}"
+          echo "Calculated Build Number: ${BUILD_NUMBER}"
+          echo "Calculated Full Version: ${FULL_VERSION}"
+          echo "Calculated Slug Version: ${FULL_VERSION_SLUG}"
+
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
+          echo "FULL_VERSION=${FULL_VERSION}" >> $GITHUB_ENV
+          echo "FULL_VERSION_SLUG=${FULL_VERSION_SLUG}" >> $GITHUB_ENV
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'beta'
+          cache: true
+
+      - name: Enable Linux Desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Install Dependencies
+        run: flutter pub get
+
+      - name: Run Code Generation
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Run Tests
+        run: flutter test
+
+      - name: Build Linux Executable (Release)
+        run: |
+          flutter build linux --release --build-name=$VERSION_NAME --build-number=$BUILD_NUMBER
+
+      - name: Package AppImage
+        run: |
+          mkdir -p AppDir/usr/bin
+          mkdir -p output/linux
+
+          # Bundle all release binaries and assets into AppDir/usr/bin
+          cp -r build/linux/x64/release/bundle/* AppDir/usr/bin/
+
+          # Copy packaging files into AppDir root
+          cp packaging/linux/AppRun AppDir/AppRun
+          chmod +x AppDir/AppRun
+          cp packaging/linux/teste_sti.desktop AppDir/teste_sti.desktop
+          cp packaging/linux/teste_sti.png AppDir/teste_sti.png
+          cp packaging/linux/teste_sti.png AppDir/.DirIcon
+
+          # Download official appimagetool binary
+          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage -O appimagetool
+          chmod +x appimagetool
+
+          # Package AppImage with --appimage-extract-and-run (avoids FUSE restrictions)
+          ARCH=x86_64 ./appimagetool --appimage-extract-and-run AppDir "output/linux/TesteSTI-v${FULL_VERSION_SLUG}-linux-x86_64.AppImage"
+
+      - name: Upload Linux AppImage (.AppImage)
+        uses: actions/upload-artifact@v4
+        with:
+          name: TesteSTI-v${{ env.FULL_VERSION_SLUG }}-linux-AppImage
+          path: output/linux/*.AppImage
+          if-no-files-found: error

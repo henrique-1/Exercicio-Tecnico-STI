@@ -1,0 +1,15 @@
+#!/bin/sh
+set -e
+
+# Determine the absolute directory where AppRun resides
+APPDIR="$(dirname "$(readlink -f "$0")")"
+
+# Configure library and binary search paths
+export PATH="${APPDIR}/usr/bin:${PATH}"
+export LD_LIBRARY_PATH="${APPDIR}/usr/bin/lib:${LD_LIBRARY_PATH}"
+
+# Navigate to application binary directory for relative asset resolution
+cd "${APPDIR}/usr/bin"
+
+# Launch the Flutter Linux binary
+exec "${APPDIR}/usr/bin/teste_sti" "$@"

@@ -1,0 +1,83 @@
+-- ==============================================================================
+-- EXERCÍCIO TÉCNICO STI - CADASTRO DE VEÍCULOS
+-- Script DDL para Microsoft SQL Server
+-- ==============================================================================
+
+-- 1. Criação da Tabela MARCAS
+CREATE TABLE MARCAS (
+    MAR_ID INT IDENTITY(1,1) NOT NULL,
+    MAR_NOME VARCHAR(50) NOT NULL,
+    CONSTRAINT PK_MARCAS PRIMARY KEY CLUSTERED (MAR_ID)
+);
+
+-- 2. Criação da Tabela MODELOS
+CREATE TABLE MODELOS (
+    MOD_ID INT IDENTITY(1,1) NOT NULL,
+    MOD_NOME VARCHAR(50) NOT NULL,
+    FK_MARCAS_MAR_ID INT NOT NULL,
+    CONSTRAINT PK_MODELOS PRIMARY KEY CLUSTERED (MOD_ID),
+    CONSTRAINT FK_MODELOS_MARCAS FOREIGN KEY (FK_MARCAS_MAR_ID)
+        REFERENCES MARCAS (MAR_ID)
+        ON DELETE CASCADE
+);
+
+-- 3. Criação da Tabela CARROS (VEÍCULOS)
+CREATE TABLE CARROS (
+    CAR_ID INT IDENTITY(1,1) NOT NULL,
+    CAR_PLACA VARCHAR(10) NOT NULL,
+    CAR_COR VARCHAR(30) NOT NULL,
+    CAR_ANO INT NOT NULL,
+    CAR_PORTE VARCHAR(20) NOT NULL,
+    CAR_TIPO_CARGA VARCHAR(30) NOT NULL,
+    CAR_CHASSIS VARCHAR(17) NOT NULL,
+    FK_MODELOS_MOD_ID INT NOT NULL,
+    CONSTRAINT PK_CARROS PRIMARY KEY CLUSTERED (CAR_ID),
+    CONSTRAINT UQ_CARROS_PLACA UNIQUE (CAR_PLACA),
+    CONSTRAINT UQ_CARROS_CHASSIS UNIQUE (CAR_CHASSIS),
+    CONSTRAINT FK_CARROS_MODELOS FOREIGN KEY (FK_MODELOS_MOD_ID)
+        REFERENCES MODELOS (MOD_ID)
+        ON DELETE CASCADE
+);
+
+-- 4. Criação de Índices para Otimização de Busca
+CREATE NONCLUSTERED INDEX IX_CARROS_PLACA ON CARROS (CAR_PLACA);
+CREATE NONCLUSTERED INDEX IX_MODELOS_NOME ON MODELOS (MOD_NOME);
+
+-- ==============================================================================
+-- Dados Iniciais (Seed)
+-- ==============================================================================
+SET IDENTITY_INSERT MARCAS ON;
+INSERT INTO MARCAS (MAR_ID, MAR_NOME) VALUES
+(1, 'Chevrolet'),
+(2, 'Volkswagen'),
+(3, 'Fiat'),
+(4, 'Toyota'),
+(5, 'Ford'),
+(6, 'Hyundai'),
+(7, 'Volvo');
+SET IDENTITY_INSERT MARCAS OFF;
+
+SET IDENTITY_INSERT MODELOS ON;
+INSERT INTO MODELOS (MOD_ID, MOD_NOME, FK_MARCAS_MAR_ID) VALUES
+(1, 'Onix', 1),
+(2, 'Tracker', 1),
+(3, 'S10', 1),
+(4, 'Gol', 2),
+(5, 'Polo', 2),
+(6, 'T-Cross', 2),
+(7, 'Strada', 3),
+(8, 'Toro', 3),
+(9, 'Argo', 3),
+(10, 'Corolla', 4),
+(11, 'Hilux', 4),
+(12, 'Ranger', 5),
+(13, 'HB20', 6),
+(14, 'FH 540', 7);
+SET IDENTITY_INSERT MODELOS OFF;
+
+SET IDENTITY_INSERT CARROS ON;
+INSERT INTO CARROS (CAR_ID, CAR_PLACA, CAR_COR, CAR_ANO, CAR_PORTE, CAR_TIPO_CARGA, CAR_CHASSIS, FK_MODELOS_MOD_ID) VALUES
+(1, 'BRA2E19', 'Prata', 2023, 'Médio', 'Passageiro', '9BRBL42E0P0123456', 10),
+(2, 'RBD3A45', 'Branco', 2024, 'Pequeno', 'Carga Geral', '9BD2782A0P0654321', 7),
+(3, 'ABC1234', 'Azul', 2022, 'Grande', 'Carga Geral', '9BV1234A0P0987654', 14);
+SET IDENTITY_INSERT CARROS OFF;

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Teste STI
+GenericName=Gestão de Veículos
+Comment=Sistema de Gestão de Veículos, Marcas e Modelos STI
+Exec=teste_sti %u
+Icon=teste_sti
+Terminal=false
+Categories=Utility;Office;
+StartupNotify=true
+StartupWMClass=teste_sti
