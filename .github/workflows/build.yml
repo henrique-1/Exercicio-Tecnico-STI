@@ -176,3 +176,78 @@ jobs:
           name: TesteSTI-v${{ env.FULL_VERSION_SLUG }}-linux-AppImage
           path: output/linux/*.AppImage
           if-no-files-found: error
+
+  publish-release:
+    name: Publish Official GitHub Release
+    needs: [build-windows, build-linux]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate Incremental Version
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          VERSION_LINE=$(grep '^version:' pubspec.yaml | cut -d':' -f2 | tr -dc '0-9.+')
+          VERSION_NAME=$(echo "$VERSION_LINE" | cut -d'+' -f1)
+          BASE_BUILD=$(echo "$VERSION_LINE" | cut -d'+' -f2)
+          BUILD_NUMBER=$((BASE_BUILD + GITHUB_RUN_NUMBER))
+          FULL_VERSION="${VERSION_NAME}+${BUILD_NUMBER}"
+          FULL_VERSION_SLUG="${VERSION_NAME}.${BUILD_NUMBER}"
+
+          echo "VERSION_NAME=${VERSION_NAME}" >> $GITHUB_ENV
+          echo "BUILD_NUMBER=${BUILD_NUMBER}" >> $GITHUB_ENV
+          echo "FULL_VERSION=${FULL_VERSION}" >> $GITHUB_ENV
+          echo "FULL_VERSION_SLUG=${FULL_VERSION_SLUG}" >> $GITHUB_ENV
+
+      - name: Download Windows Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: TesteSTI-v${{ env.FULL_VERSION_SLUG }}-windows-setup
+          path: release-assets/
+
+      - name: Download Linux AppImage
+        uses: actions/download-artifact@v4
+        with:
+          name: TesteSTI-v${{ env.FULL_VERSION_SLUG }}-linux-AppImage
+          path: release-assets/
+
+      - name: Generate Release Notes with Push Commits
+        run: |
+          echo "## 🚀 Teste STI Desktop - Release v${FULL_VERSION}" > release_notes.md
+          echo "" >> release_notes.md
+          echo "### 📦 Commits incluídos nesta Release:" >> release_notes.md
+          echo "" >> release_notes.md
+
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.event.after }}"
+
+          if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            git log "${BEFORE}..${AFTER}" --pretty=format:"* %s (%h por @%an)" >> release_notes.md
+          else
+            git log -n 1 --pretty=format:"* %s (%h por @%an)" >> release_notes.md
+          fi
+
+          echo "" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 💾 Instaladores Anexados:" >> release_notes.md
+          echo "- **Windows**: Instalador executável autônomo (\`.exe\`) gerado com Inno Setup." >> release_notes.md
+          echo "- **Linux**: Executável portátil universal (\`.AppImage\`) compatível com distribuições Linux." >> release_notes.md
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ env.FULL_VERSION_SLUG }}
+          name: Release v${{ env.FULL_VERSION }}
+          body_path: release_notes.md
+          files: release-assets/*
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
