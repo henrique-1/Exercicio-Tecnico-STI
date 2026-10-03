@@ -227,11 +227,12 @@ jobs:
 
           BEFORE="${{ github.event.before }}"
           AFTER="${{ github.event.after }}"
+          ACTOR="${{ github.actor }}"
 
           if [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
-            git log "${BEFORE}..${AFTER}" --pretty=format:"* %s (%h por @%an)" >> release_notes.md
+            git log "${BEFORE}..${AFTER}" --pretty=format:"* %s (%h por [${ACTOR}](https://github.com/${ACTOR}))" >> release_notes.md
           else
-            git log -n 1 --pretty=format:"* %s (%h por @%an)" >> release_notes.md
+            git log -n 1 --pretty=format:"* %s (%h por [${ACTOR}](https://github.com/${ACTOR}))" >> release_notes.md
           fi
 
           echo "" >> release_notes.md
