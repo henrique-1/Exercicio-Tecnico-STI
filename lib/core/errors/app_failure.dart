@@ -11,13 +11,11 @@ class ValidationFailure extends AppFailure {
 }
 
 class DuplicatedPlateFailure extends AppFailure {
-  const DuplicatedPlateFailure([String message = 'Já existe um veículo cadastrado com esta placa.'])
-      : super(message);
+  const DuplicatedPlateFailure([super.message = 'Já existe um veículo cadastrado com esta placa.']);
 }
 
 class DuplicatedChassisFailure extends AppFailure {
-  const DuplicatedChassisFailure([String message = 'Já existe um veículo cadastrado com este chassis.'])
-      : super(message);
+  const DuplicatedChassisFailure([super.message = 'Já existe um veículo cadastrado com este chassis.']);
 }
 
 class DatabaseFailure extends AppFailure {
@@ -25,6 +23,5 @@ class DatabaseFailure extends AppFailure {
 }
 
 class NotFoundFailure extends AppFailure {
-  const NotFoundFailure([String message = 'Registro não encontrado.'])
-      : super(message);
+  const NotFoundFailure([super.message = 'Registro não encontrado.']);
 }

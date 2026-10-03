@@ -40,6 +40,11 @@ class AppValidators {
       return 'O chassis deve conter exatamente 17 caracteres.';
     }
 
+    final vinRegex = RegExp(r'^[A-HJ-NPR-Z0-9]{17}$');
+    if (!vinRegex.hasMatch(sanitized)) {
+      return 'Chassis inválido. Não pode conter as letras I, O ou Q.';
+    }
+
     return null;
   }
 

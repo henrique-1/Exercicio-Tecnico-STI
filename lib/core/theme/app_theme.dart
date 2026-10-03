@@ -4,33 +4,15 @@ import 'package:google_fonts/google_fonts.dart';
 class AppTheme {
   AppTheme._();
 
-  /// Primária: Azul Safira (#0F52BA)
   static const Color primary = Color(0xFF0F52BA);
-
-  /// Fundo (Background): Cinza Gelo (#F8FAFC)
   static const Color background = Color(0xFFF8FAFC);
-
-  /// Superfície (Cards): Branco (#FFFFFF)
   static const Color surface = Color(0xFFFFFFFF);
-
-  /// Texto Principal: Grafite Escuro (#1E293B)
   static const Color textPrimary = Color(0xFF1E293B);
-
-  /// Texto Secundário: Cinza Ardósia (#64748B)
   static const Color textSecondary = Color(0xFF64748B);
-
-  /// Sucesso (Create/Update): Verde Esmeralda (#10B981)
   static const Color success = Color(0xFF10B981);
-
-  /// Alerta / Validação: Âmbar (#F59E0B)
   static const Color warning = Color(0xFFF59E0B);
-
-  /// Destrutiva (Delete): Vermelho (#EF4444)
   static const Color destructive = Color(0xFFEF4444);
 
-  // ===========================================================================
-  // Cores Complementares & Neutras
-  // ===========================================================================
   static const Color border = Color(0xFFCBD5E1);
   static const Color borderLight = Color(0xFFE2E8F0);
   static const Color divider = Color(0xFFF1F5F9);
@@ -41,15 +23,6 @@ class AppTheme {
   static const Color warningLight = Color(0xFFFFFBEB);
   static const Color successLight = Color(0xFFECFDF5);
   static const Color placeholder = Color(0xFF94A3B8);
-
-  // Aliases para compatibilidade
-  static const Color primaryColor = primary;
-  static const Color surfaceColor = surface;
-  static const Color cardColor = surface;
-  static const Color backgroundColor = background;
-  static const Color successColor = success;
-  static const Color warningColor = warning;
-  static const Color destructiveColor = destructive;
 
   static ThemeData get lightTheme {
     final baseTextTheme = GoogleFonts.interTextTheme();

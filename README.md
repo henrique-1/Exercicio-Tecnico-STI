@@ -1,181 +1,150 @@
-# Exercício Técnico - Cadastro de Veículos (STI)
+# Gestão de Veículos - Teste Técnico STI
 
-Aplicação desenvolvida para o processo seletivo da **STI**, implementando um sistema completo de **Cadastro de Veículos (CRUD)** com busca por Placa ou Modelo, validações estritas de regras de negócio e modelagem relacional em banco de dados.
+Olá! 👋 Este repositório contém a minha solução para o teste técnico de desenvolvimento da **STI**, focado na implementação de um sistema completo de **Cadastro e Gestão de Veículos (CRUD)** com busca reativa, seleção de marcas e modelos em cascata, validações de regras de negócio e persistência local relacional.
 
----
-
-## 🛠️ Tecnologias Utilizadas
-
-- **Linguagem**: [Dart](https://dart.dev) (v3.12+)
-- **Framework**: [Flutter](https://flutter.dev) (v3.44+)
-- **Banco de Dados**: SQLite gerenciado via [Drift](https://drift.simonbinder.eu/) e `drift_flutter`
-- **Gerenciamento de Estado & DI**: [Riverpod](https://riverpod.dev) (`hooks_riverpod`, `riverpod_annotation`, `riverpod_generator`)
-- **Imutabilidade e Entidades de Domínio**: [Freezed](https://pub.dev/packages/freezed)
-- **Navegação Declarativa**: [GoRouter](https://pub.dev/packages/go_router)
-- **Design System & UX**: Material 3, [Google Fonts](https://pub.dev/packages/google_fonts) (Inter), [Skeletonizer](https://pub.dev/packages/skeletonizer) (Shimmer loading)
-- **Responsividade & Desktop**: [Sizer](https://pub.dev/packages/sizer) e [window_manager](https://pub.dev/packages/window_manager)
+A aplicação foi projetada prioritariamente para ambiente **Desktop (Linux e Windows)**, mas com arquitetura totalmente desacoplada e responsiva para rodar em Web ou Mobile.
 
 ---
 
-## 🏛️ Arquitetura do Projeto
+## 💡 Decisões Técnicas e Arquitetura
 
-O projeto adota a **Feature-First Clean Architecture**, garantindo estrita separação de responsabilidades (Separation of Concerns), desacoplamento entre interface e persistência, e facilidade de testes automatizados.
+Optei por uma arquitetura **Feature-First Clean Architecture**, balanceando boas práticas com pragmatismo:
+
+### 1. Separação Feature-First
+Organizei o código por domínio funcional (`features/vehicles`) e recursos compartilhados (`core/`). Dessa forma, caso o sistema cresça para gerenciar motoristas, viagens ou frotas, cada módulo evolui de forma independente sem virar um monólito espalhado por camadas globais.
 
 ```
 lib/
-├── core/
-│   ├── database/
-│   │   ├── app_database.dart          # Drift Database com conexão drift_flutter
-│   │   ├── tables/
-│   │   │   ├── marcas_table.dart      # Mapeamento da tabela MARCAS
-│   │   │   ├── modelos_table.dart     # Mapeamento da tabela MODELOS (FK para MARCAS)
-│   │   │   └── carros_table.dart      # Mapeamento da tabela CARROS (FK para MODELOS, UK Placa e Chassis)
-│   │   └── seed/
-│   │       └── initial_data.dart      # Carga inicial com marcas, modelos e veículos
-│   ├── errors/
-│   │   └── app_failure.dart           # Modelagem de falhas tipadas (Domain Failures)
-│   ├── router/
-│   │   └── app_router.dart            # Rotas declarativas (/ , /novo, /editar)
-│   ├── theme/
-│   │   └── app_theme.dart             # Tema Material 3 customizado com Google Fonts
-│   └── utils/
-│       ├── formatters.dart            # Formatters (ex: UpperCaseTextFormatter em tempo real)
-│       └── validators.dart            # Validadores puros de regras de negócio
+├── core/                        # Infraestrutura compartilhada
+│   ├── database/                # Drift Database, tabelas relacionais e seeds
+│   ├── errors/                  # Falhas tipadas de domínio (AppFailure)
+│   ├── router/                  # Rotas declarativas com GoRouter
+│   ├── theme/                   # Cores e Design System da STI
+│   └── utils/                   # Validadores e formatadores (brasil_fields)
 ├── features/
-│   └── vehicles/
-│       ├── domain/
-│       │   ├── models/
-│       │   │   ├── vehicle.dart       # Entidade Freezed Vehicle (com Marca e Modelo)
-│       │   │   ├── vehicle_brand.dart # Entidade Freezed VehicleBrand
-│       │   │   └── vehicle_model.dart # Entidade Freezed VehicleModel
-│       │   └── repositories/
-│       │       └── i_vehicle_repository.dart # Interface/Contrato do repositório
-│       ├── data/
-│       │   └── repositories/
-│       │       └── vehicle_repository_impl.dart # Implementação com queries Drift e Joins
-│       └── presentation/
-│           ├── controllers/
-│           │   └── vehicle_providers.dart # Notifiers do Riverpod (CRUD, stream reativo, busca)
-│           ├── widgets/
-│           │   ├── vehicle_card.dart          # Card do veículo com placa estilizada e ações
-│           │   ├── vehicle_search_bar.dart    # Barra de busca por placa ou modelo
-│           │   ├── vehicle_delete_dialog.dart # Modal de confirmação segura de exclusão
-│           │   └── vehicle_skeleton_list.dart # Placeholder com Skeletonizer para loading
-│           └── views/
-│               ├── vehicle_list_page.dart     # Listagem reativa e pesquisa
-│               └── vehicle_form_page.dart     # Cadastro e edição com seleção em cascata
-└── main.dart                                  # Setup inicial, ProviderScope e execução
+│   └── vehicles/                # Feature completa de veículos
+│       ├── domain/              # Modelos imutáveis (Freezed) e contratos (i_vehicle_repository)
+│       ├── data/                # Implementação do repositório e queries com Joins
+│       └── presentation/        # Notifiers Riverpod, páginas e componentes visuais
+└── main.dart                    # Entry point e inicialização
 ```
 
----
+### 2. Por que sem UseCases burocráticos?
+Para operações de CRUD com persistência local, criar uma classe de UseCase apenas para repassar uma chamada de método para o repositório seria adicionar *boilerplate* desnecessário (*overengineering*). Optei por conectar os **Controllers/Notifiers do Riverpod** diretamente aos contratos de interface do repositório (`IVehicleRepository`). Isso mantém o código limpo, fácil de ler e 100% testável com mocks.
 
-## 🗄️ Modelagem do Banco de Dados
+### 3. Banco de Dados: Drift (SQLite) com 3FN
+Para cumprir os diagramas lógico e conceitual fornecidos, a modelagem foi estruturada na **Terceira Forma Normal (3FN)**:
+- `MARCAS`: Tabela pai de montadoras.
+- `MODELOS`: Relacionada com chave estrangeira para `MARCAS` e `ON DELETE CASCADE`.
+- `CARROS`: Relacionada com `MODELOS`, com restrições `UNIQUE` para **Placa** e **Chassis**.
 
-Seguindo os diagramas conceitual e lógico presentes em `assets/brModelo/`, a modelagem relacional foi estruturada na **3ª Forma Normal (3FN)**:
+Utilizar o **Drift** trouxe grandes vantagens:
+- **Type-Safety**: Erros em colunas e tipos são pegos em tempo de compilação.
+- **Reatividade com Streams**: O método `watchVehicles()` atualiza a tela instantaneamente sempre que um veículo é criado, editado ou excluído.
+- **Testabilidade**: Nos testes automatizados, instanciamos o banco em memória (`NativeDatabase.memory()`) de forma rápida e isolada.
 
-```
-[MARCAS] 1 ──────── N [MODELOS] 1 ──────── N [CARROS]
-(MAR_ID, MAR_NOME)   (MOD_ID, MOD_NOME,    (CAR_ID, CAR_PLACA [UQ],
-                      FK_MARCAS_MAR_ID)      CAR_COR, CAR_ANO, CAR_PORTE,
-                                             CAR_TIPO_CARGA, CAR_CHASSIS [UQ],
-                                             FK_MODELOS_MOD_ID)
-```
-
-### Scripts SQL Disponíveis
-Para atender às exigências de entrega do teste técnico, foram disponibilizados dois scripts DDL completos:
-1. **Microsoft SQL Server**: [`assets/sql/sql_server_create_database.sql`](file:///home/henrique_1/Documents/teste_sti/assets/sql/sql_server_create_database.sql)
-2. **SQLite**: [`assets/sql/sqlite_create_database.sql`](file:///home/henrique_1/Documents/teste_sti/assets/sql/sqlite_create_database.sql)
-
-Ambos contêm criação de tabelas, chaves primárias, chaves estrangeiras com `ON DELETE CASCADE`, constraints `UNIQUE` para Placa e Chassis, índices de otimização de busca e dados iniciais de carga (seed).
+> **Scripts SQL Entregues**: Conforme exigido no teste, criei os scripts DDL em `assets/sql/`:
+> - [`sql_server_create_database.sql`](assets/sql/sql_server_create_database.sql) (Microsoft SQL Server)
+> - [`sqlite_create_database.sql`](assets/sql/sqlite_create_database.sql) (SQLite)
 
 ---
 
-## 📋 Regras de Negócio e Validações Implementadas
+## 🚗 Regras de Negócio e UX
 
-| Regra do Exercício | Implementação no Projeto |
-| :--- | :--- |
-| **Todos os campos são obrigatórios** | Validados via `AppValidators` no formulário e com constraints `NOT NULL` no banco. |
-| **A placa não poderá ser duplicada** | Constraint `UNIQUE` no banco e validação preventiva no repositório antes da inserção/edição com mensagem amigável. |
-| **O chassis não poderá ser duplicado** | Constraint `UNIQUE` no banco e checagem preventiva no repositório com mensagem amigável. |
-| **A placa deverá ser gravada em letras maiúsculas** | Forçada na digitação com `UpperCaseTextFormatter` e sanitizada (`toUpperCase()`) no domínio. |
-| **Validação de placa brasileira** | Valida tanto o padrão tradicional (`ABC-1234`) quanto o padrão Mercosul (`ABC1D23`). |
-| **Validação de chassis (VIN)** | Exatamente 17 caracteres alfanuméricos válidos, rejeitando caracteres proibidos pela ISO (I, O, Q). |
-| **Ano do veículo** | Numérico entre 1900 e o ano seguinte ao atual. |
-| **Mensagens amigáveis em caso de erro** | Feedback visual com `SnackBar` temático (sucesso em verde, erro em vermelho com detalhes claros) e validações inline nos campos. |
-| **Confirmação de exclusão** | Diálogo modal de confirmação exibindo dados do veículo antes de remover do banco. |
+Algumas atenções aos detalhes que implementei para garantir consistência e boa experiência de uso:
 
----
+1. **Formatação e Sanitização de Placa**:
+   - Integração com o pacote `brasil_fields` (`PlacaVeiculoInputFormatter`) para aplicar a máscara visual em tempo real no formulário.
+   - Suporte tanto ao padrão antigo (`ABC-1234`) quanto ao padrão Mercosul (`ABC1D23`).
+   - Forçador de caixa alta na digitação (`UpperCaseTextFormatter`) e sanitização no envio para garantir que a placa seja sempre salva em maiúsculas e sem pontuação desnecessária.
+   - Exibição da placa nos cards em um badge estilizado no formato oficial.
 
-## 🚀 Como Executar o Projeto
+2. **Chassis (VIN)**:
+   - Validação de 17 caracteres alfanuméricos, rejeitando caracteres inválidos e garantindo unicidade no banco.
 
-### Pré-requisitos
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) instalado (versão 3.12 ou superior)
-- Git instalado
+3. **Dropdowns em Cascata**:
+   - Ao selecionar uma Marca, a lista de Modelos é filtrada de forma reativa.
+   - Caso a marca seja alterada, o modelo anteriormente selecionado é automaticamente resetado para evitar inconsistência de dados.
 
-### Passo a Passo
+4. **Feedback Visual e Prevenção de Falhas**:
+   - Durante a busca ou carregamento, a lista exibe skeletons shimmer animados (`Skeletonizer`), prevenindo saltos de layout (*layout shifts*).
+   - Validação preventiva de duplicidade de placa e chassis antes da persistência, retornando alertas claros em Snackbar temático.
+   - Confirmação de exclusão com modal seguro para evitar cliques acidentais.
 
-1. **Clonar o Repositório**:
-   ```bash
-   git clone <URL_DO_REPOSITORIO>
-   cd teste_sti
-   ```
-
-2. **Instalar Dependências**:
-   ```bash
-   flutter pub get
-   ```
-
-3. **Gerar Códigos (Drift, Freezed, Riverpod)**:
-   ```bash
-   dart run build_runner build
-   ```
-
-4. **Executar a Aplicação**:
-   ```bash
-   # Execução em Desktop (Linux / Windows)
-   flutter run -d linux
-   # ou
-   flutter run -d windows
-   # ou no seu navegador / emulador
-   flutter run -d chrome
-   ```
+5. **Identidade Visual**:
+   - Apliquei a paleta de cores institucional da STI (`#0F52BA` Azul Safira, `#F8FAFC` Fundo, `#10B981` Sucesso, `#EF4444` Destrutivo, etc.) centralizada em `AppTheme`.
 
 ---
 
-## 🧪 Testes Automatizados
+## 🧪 Suíte de Testes Automatizados
 
-O projeto conta com suíte completa de testes automatizados cobrindo testes unitários, testes de integração de repositório (com banco SQLite em memória) e testes de widgets de tela.
+Escrevi **20 testes automatizados** cobrindo os pilares fundamentais da aplicação:
 
-Para executar todos os testes:
 ```bash
 flutter test
 ```
 
-### Testes Implementados:
-- **`test/core/utils/validators_test.dart`**: 11 testes unitários cobrindo validações de placas (Mercosul e padrão antigo), formatos de chassis de 17 caracteres, anos permitidos e sanitização de maiúsculas.
-- **`test/features/vehicles/data/vehicle_repository_test.dart`**: 8 testes de integração testando todo o ciclo de vida do CRUD, integridade relacional, busca por placa ou modelo e prevenção de duplicidade de placa e chassis.
-- **`test/features/vehicles/presentation/vehicle_list_page_test.dart`**: Teste de widget testando renderização da lista, pesquisa reativa em tempo real e filtros de exibição.
+- **Validações de Regra de Negócio** (`test/core/utils/validators_test.dart`): 11 testes garantindo que placas tradicionais e Mercosul, limites de ano, chassis e obrigatoriedade funcionam como esperado.
+- **Repositório & Integridade Relacional** (`test/features/vehicles/data/vehicle_repository_test.dart`): 8 testes de integração executando inserções, buscas por placa/modelo, integridade referencial com Joins e bloqueio de duplicidade em banco em memória.
+- **Widgets e Interação** (`test/features/vehicles/presentation/vehicle_list_page_test.dart`): Teste de interface validando a renderização dos cards, digitação na pesquisa em tempo real e atualização dos resultados.
 
 ---
 
-## 🚀 CI/CD Automatizado (GitHub Actions)
+## ⚙️ CI/CD com GitHub Actions
 
-O repositório possui uma pipeline completa configurada em `.github/workflows/build.yml` que é disparada automaticamente a cada commit/push e pull request:
+Configurei um pipeline automatizado em `.github/workflows/build.yml` disparado a cada commit ou pull request:
 
-- **Versionamento Incremental**: Lê a versão semântica e o build base de `pubspec.yaml` (`0.1.0+1`) e incrementa o build number com o contador da Action (`${{ github.run_number }}`).
-- **Build Windows**: Compila a versão release e gera um **instalador executável autônomo (.exe)** via Inno Setup (`packaging/windows/setup.iss`), instalando o app no sistema, adicionando atalhos e desinstalador.
-- **Build Linux**: Compila a versão release e empacota em um **executável universal (.AppImage)** via `appimagetool` (`packaging/linux/`), pronto para rodar em qualquer distribuição Linux.
-- **Publicação dos Artefatos**: Ambos os binários são gerados, validados e disponibilizados para download nos artefatos da Action.
+- **Versionamento Incremental Automático**: A Action extrai a versão semântica do `pubspec.yaml` (`0.1.0+1`) e incrementa o build number com o contador da Action (`${{ github.run_number }}`), garantindo rastreabilidade contínua.
+- **Build Windows**: Compila em release e gera um **instalador executável nativo (.exe)** com **Inno Setup** (`packaging/windows/setup.iss`), que instala o app em `Program Files`, cria atalhos no Menu Iniciar e Desktop e disponibiliza desinstalador.
+- **Build Linux**: Compila em release e empacota em um **`.AppImage` universal** via `appimagetool` (`packaging/linux/`), portátil e compatível com as principais distribuições Linux.
+- **Artefatos**: Ambos os instaladores ficam disponíveis para download diretamente na aba *Actions* do GitHub.
+
+---
+
+## 🛠️ Como Executar o Projeto Localmente
+
+### Pré-requisitos
+- [Flutter SDK](https://flutter.dev) (versão 3.24+ / Dart 3.5+) instalado e configurado no PATH.
+- No Linux: ferramentas padrão de build (`clang`, `cmake`, `ninja-build`, `pkg-config`, `libgtk-3-dev`).
+
+### Passo a passo:
+
+1. **Clone o repositório**:
+   ```bash
+   git clone <URL_DO_SEU_REPOSITORIO>
+   cd teste_sti
+   ```
+
+2. **Instale as dependências**:
+   ```bash
+   flutter pub get
+   ```
+
+3. **Gere os arquivos de código (Drift, Freezed, Riverpod)**:
+   ```bash
+   dart run build_runner build --delete-conflicting-outputs
+   ```
+
+4. **Execute no Desktop**:
+   ```bash
+   # Linux
+   flutter run -d linux
+
+   # Windows
+   flutter run -d windows
+   ```
+
+*(O banco de dados local SQLite já é inicializado automaticamente com dados de exemplo de marcas, modelos e veículos na primeira inicialização).*
 
 ---
 
 ## 📸 Demonstração da Aplicação
 
-### Listagem e Pesquisa de Veículos
-*(Insira aqui os prints da tela principal com a listagem de veículos e pesquisa)*
+### Tela Principal (Listagem e Pesquisa em Tempo Real)
+*(Insira aqui os prints da tela principal com a listagem e o filtro de busca)*
 
-### Cadastro e Edição com Seleção em Cascata (Marca -> Modelo)
-*(Insira aqui os prints do formulário de cadastro)*
+### Formulário de Cadastro e Edição (Seleção em Cascata)
+*(Insira aqui os prints do formulário de criação/edição)*
 
-### Validações e Mensagens Amigáveis
-*(Insira aqui os prints de validação de campos obrigatórios, placa em maiúsculas e alerta de duplicidade)*
+### Validações e Alertas
+*(Insira aqui os prints das mensagens de erro amigáveis e validação de placa/chassis)*
