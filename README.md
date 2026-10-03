@@ -33,14 +33,27 @@ lib/
 Para operações de CRUD com persistência local, criar uma classe de UseCase apenas para repassar uma chamada de método para o repositório seria adicionar *boilerplate* desnecessário (*overengineering*). Optei por conectar os **Controllers/Notifiers do Riverpod** diretamente aos contratos de interface do repositório (`IVehicleRepository`). Isso mantém o código limpo, fácil de ler e 100% testável com mocks.
 
 ### 3. Banco de Dados: Drift (SQLite) com 3FN
-Para cumprir os diagramas lógico e conceitual fornecidos, a modelagem foi estruturada na **Terceira Forma Normal (3FN)**:
-- `MARCAS`: Tabela pai de montadoras.
-- `MODELOS`: Relacionada com chave estrangeira para `MARCAS` e `ON DELETE CASCADE`.
-- `CARROS`: Relacionada com `MODELOS`, com restrições `UNIQUE` para **Placa** e **Chassis**.
+A modelagem foi estruturada na **Terceira Forma Normal (3FN)**:
+- `MARCAS`: Tabela de montadoras (`MAR_ID`, `MAR_NOME`).
+- `MODELOS`: Tabela de modelos (`MOD_ID`, `MOD_NOME`, `FK_MARCAS_MAR_ID`) com chave estrangeira e `ON DELETE CASCADE`.
+- `CARROS`: Tabela principal com restrições `UNIQUE` para **Placa** e **Chassis** e chave estrangeira para `MODELOS`.
+
+#### 🎯 Por que separei Marca e Modelo em tabelas distintas?
+A escolha de separar `MARCAS` e `MODELOS` em tabelas dedicadas foi uma **decisão de arquitetura tomada por mim (desenvolvedor)** com dois objetivos fundamentais:
+1. **Seleção em Cascata (Dropdowns)**: Permite extrair facilmente listas limpas de marcas e filtrar seus modelos correspondentes de forma reativa, proporcionando uma experiência de usuário (UX) fluida.
+2. **Prevenção de Erros de Digitação (*Typos*)**: Impede que o usuário digite nomes de marcas ou modelos em campos de texto livre. Isso elimina inconsistências cadastrais graves (como variações *"VW"*, *"Volks"* e *"Volkswagen"*) e garante total integridade relacional no banco.
+
+#### Diagramas do Banco de Dados (brModelo)
+
+**Modelo Conceitual:**
+![Modelo Conceitual](assets/brModelo/Conceitual.png)
+
+**Modelo Lógico:**
+![Modelo Lógico](assets/brModelo/L%C3%B3gico.png)
 
 Utilizar o **Drift** trouxe grandes vantagens:
-- **Type-Safety**: Erros em colunas e tipos são pegos em tempo de compilação.
-- **Reatividade com Streams**: O método `watchVehicles()` atualiza a tela instantaneamente sempre que um veículo é criado, editado ou excluído.
+- **Type-Safety**: Erros em colunas e tipos são identificados em tempo de compilação.
+- **Reatividade com Streams**: O método `watchVehicles()` atualiza a interface instantaneamente sempre que um veículo é criado, editado ou excluído.
 - **Testabilidade**: Nos testes automatizados, instanciamos o banco em memória (`NativeDatabase.memory()`) de forma rápida e isolada.
 
 > **Scripts SQL Entregues**: Conforme exigido no teste, criei os scripts DDL em `assets/sql/`:
@@ -140,11 +153,35 @@ Configurei um pipeline automatizado em `.github/workflows/build.yml` disparado a
 
 ## 📸 Demonstração da Aplicação
 
-### Tela Principal (Listagem e Pesquisa em Tempo Real)
-*(Insira aqui os prints da tela principal com a listagem e o filtro de busca)*
+### 1. Tela Principal (Listagem com Card de Veículo Estilizado)
+A tela inicial apresenta os veículos cadastrados organizados em cards informativos com o badge no padrão oficial automotivo, tags de especificações, identificação de chassis com botão para copiar e ações rápidas:
 
-### Formulário de Cadastro e Edição (Seleção em Cascata)
-*(Insira aqui os prints do formulário de criação/edição)*
+![Listagem de Veículos](assets/images/image.png)
 
-### Validações e Alertas
-*(Insira aqui os prints das mensagens de erro amigáveis e validação de placa/chassis)*
+---
+
+### 2. Pesquisa Instantânea em Tempo Real
+A barra de busca filtra a lista de veículos de forma reativa e instantânea à medida que o usuário digita por **Placa** ou **Modelo**:
+
+![Pesquisa em Tempo Real](assets/images/image%20copy%203.png)
+
+---
+
+### 3. Formulário de Cadastro e Validação Estrita (Chassis / Placa / Cascata)
+O formulário de cadastro/edição conta com seleção em cascata (Marca -> Modelo), formatação automática de placa com `brasil_fields` e validação estrita de Chassis (VIN), alertando imediatamente se houver caracteres inválidos ou proibidos (I, O, Q):
+
+![Formulário com Validação de Chassis](assets/images/image%20copy%202.png)
+
+---
+
+### 4. Confirmação Segura de Exclusão
+Para proteger contra exclusões acidentais, a remoção é interceptada por um diálogo modal com dados do veículo e aviso de ação irreversível:
+
+![Modal de Confirmação de Exclusão](assets/images/image%20copy%204.png)
+
+---
+
+### 5. Feedback Visual e Estado Vazio (Empty State)
+Caso todos os veículos sejam removidos ou a lista esteja vazia, uma tela ilustrativa de *empty state* orienta o usuário a cadastrar um novo veículo, acompanhada de feedback visual em SnackBar temático de sucesso:
+
+![Feedback Visual e Empty State](assets/images/image%20copy.png)
